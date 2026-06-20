@@ -1,4 +1,4 @@
-export type CropStatus = 'perfect' | 'needs_crop';
+export type CropStatus = 'too_small' | 'perfect' | 'needs_crop';
 
 export interface CameraCropBox {
   x: number;
@@ -41,25 +41,25 @@ export interface CameraState {
   cameraCrop: CameraCropBox | null;
   analysis: FrameAnalysis | null;
   windowSize: { width: number; height: number };
-  isWindowTooSmall: boolean;
   suggestion: string;
   setStream: (stream: MediaStream | null) => void;
   setError: (error: string | null) => void;
   setCameraCrop: (crop: CameraCropBox | null) => void;
   setAnalysis: (analysis: FrameAnalysis | null) => void;
   setWindowSize: (size: { width: number; height: number }) => void;
-  setIsWindowTooSmall: (tooSmall: boolean) => void;
   setSuggestion: (suggestion: string) => void;
 }
 
 export const CROP_COLORS: Record<CropStatus, string> = {
+  too_small: '#FF6B35',
   perfect: '#00D26A',
   needs_crop: '#FF3366',
 };
 
-export const WINDOW_TOO_SMALL_COLOR = '#FF6B35';
-export const MIN_WINDOW_WIDTH = 800;
-export const MIN_WINDOW_HEIGHT = 600;
+export const TOO_SMALL_THRESHOLD = 0.5;
+export const PERFECT_THRESHOLD = 0.85;
+export const MIN_CAMERA_WIDTH = 640;
+export const MIN_CAMERA_HEIGHT = 480;
 export const ANALYSIS_INTERVAL = 500;
 export const ANALYSIS_WIDTH = 160;
 export const ANALYSIS_HEIGHT = 120;

@@ -8,19 +8,12 @@ export const useCameraStore = create<CameraState>((set) => ({
   cameraCrop: null,
   analysis: null,
   windowSize: { width: window.innerWidth, height: window.innerHeight },
-  isWindowTooSmall:
-    window.innerWidth < 800 || window.innerHeight < 600,
   suggestion: '',
 
   setStream: (stream) => set({ stream, isStreaming: !!stream }),
   setError: (error) => set({ error }),
   setCameraCrop: (crop) => set({ cameraCrop: crop }),
   setAnalysis: (analysis) => set({ analysis }),
-  setWindowSize: (size) =>
-    set({
-      windowSize: size,
-      isWindowTooSmall: size.width < 800 || size.height < 600,
-    }),
-  setIsWindowTooSmall: (tooSmall) => set({ isWindowTooSmall: tooSmall }),
+  setWindowSize: (size) => set({ windowSize: size }),
   setSuggestion: (suggestion) => set({ suggestion }),
 }));

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCameraStore } from '@/store/useCameraStore';
-import { CameraCropBox, DisplayCropBox, WINDOW_TOO_SMALL_COLOR } from '@/utils/types';
-import { cameraCropToDisplayCrop, getFullscreenDisplayCrop } from '@/utils/coordinateMapper';
+import { CameraCropBox, DisplayCropBox } from '@/utils/types';
+import { cameraCropToDisplayCrop, getVideoAreaDisplayCrop } from '@/utils/coordinateMapper';
 
 const IS_MIRRORED = true;
 
@@ -12,16 +12,13 @@ interface UseCropOverlayOptions {
 export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
   const cameraCrop = useCameraStore((state) => state.cameraCrop);
   const analysis = useCameraStore((state) => state.analysis);
-  const isWindowTooSmall = useCameraStore((state) => state.isWindowTooSmall);
 
   const cameraCropRef = useRef<CameraCropBox | null>(null);
   const analysisRef = useRef(analysis);
-  const isWindowTooSmallRef = useRef(isWindowTooSmall);
   const animationFrameRef = useRef<number | null>(null);
 
   cameraCropRef.current = cameraCrop;
   analysisRef.current = analysis;
-  isWindowTooSmallRef.current = isWindowTooSmall;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -34,24 +31,35 @@ export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       let displayCrop: DisplayCropBox | null = null;
-      let isWindowWarning = false;
 
-      if (isWindowTooSmallRef.current) {
-        displayCrop = getFullscreenDisplayCrop(WINDOW_TOO_SMALL_COLOR);
-        isWindowWarning = true;
-      } else if (cameraCropRef.current && analysisRef.current) {
-        displayCrop = cameraCropToDisplayCrop(
-          cameraCropRef.current,
-          analysisRef.current.cameraResolution.width,
-          analysisRef.current.cameraResolution.height,
-          canvas.width,
-          canvas.height,
-          IS_MIRRORED
-        );
+      if (cameraCropRef.current && analysisRef.current) {
+        const camW = analysisRef.current.cameraResolution.width;
+        const camH = analysisRef.current.cameraResolution.height;
+
+        if (cameraCropRef.current.status === 'too_small' || cameraCropRef.current.status === 'perfect') {
+          displayCrop = getVideoAreaDisplayCrop(
+            cameraCropRef.current.color,
+            camW,
+            camH,
+            canvas.width,
+            canvas.height
+          );
+          displayCrop.status = cameraCropRef.current.status;
+        } else {
+          displayCrop = cameraCropToDisplayCrop(
+            cameraCropRef.current,
+            camW,
+            camH,
+            canvas.width,
+            canvas.height,
+            IS_MIRRORED
+          );
+        }
       }
 
       if (displayCrop) {
-        drawCropBox(ctx, displayCrop, canvas.width, canvas.height, isWindowWarning);
+        const isWarning = displayCrop.status === 'too_small';
+        drawCropBox(ctx, displayCrop, canvas.width, canvas.height, isWarning);
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);
@@ -75,7 +83,7 @@ function drawCropBox(
   crop: DisplayCropBox,
   canvasWidth: number,
   canvasHeight: number,
-  isWindowWarning: boolean
+  isWarning: boolean
 ) {
   const x = (crop.x / 100) * canvasWidth;
   const y = (crop.y / 100) * canvasHeight;
@@ -83,7 +91,7 @@ function drawCropBox(
   const height = (crop.height / 100) * canvasHeight;
 
   const time = performance.now() / 1000;
-  const pulse = isWindowWarning
+  const pulse = isWarning
     ? 0.6 + 0.4 * Math.sin(time * 4)
     : 0.7 + 0.3 * Math.sin(time * 2);
 
@@ -95,9 +103,9 @@ function drawCropBox(
   ctx.fillRect(0, y, x, height);
   ctx.fillRect(x + width, y, canvasWidth - x - width, height);
 
-  const borderWidth = isWindowWarning ? 6 : 4;
-  const cornerLength = isWindowWarning ? 50 : 40;
-  const cornerWidth = isWindowWarning ? 10 : 8;
+  const borderWidth = isWarning ? 6 : 4;
+  const cornerLength = isWarning ? 50 : 40;
+  const cornerWidth = isWarning ? 10 : 8;
 
   ctx.strokeStyle = crop.color;
   ctx.lineWidth = borderWidth;
@@ -132,7 +140,7 @@ function drawCropBox(
   ctx.lineTo(x + width, y + height - cornerLength);
   ctx.stroke();
 
-  if (crop.status === 'needs_crop' && !isWindowWarning) {
+  if (crop.status === 'needs_crop' && !isWarning) {
     ctx.setLineDash([10, 10]);
     ctx.lineDashOffset = -time * 30;
     ctx.lineWidth = 2;
