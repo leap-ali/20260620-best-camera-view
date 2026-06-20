@@ -3,6 +3,8 @@ import { useCameraStore } from '@/store/useCameraStore';
 import { CameraCropBox, DisplayCropBox, WINDOW_TOO_SMALL_COLOR } from '@/utils/types';
 import { cameraCropToDisplayCrop, getFullscreenDisplayCrop } from '@/utils/coordinateMapper';
 
+const IS_MIRRORED = true;
+
 interface UseCropOverlayOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
@@ -32,30 +34,24 @@ export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       let displayCrop: DisplayCropBox | null = null;
+      let isWindowWarning = false;
 
       if (isWindowTooSmallRef.current) {
         displayCrop = getFullscreenDisplayCrop(WINDOW_TOO_SMALL_COLOR);
+        isWindowWarning = true;
       } else if (cameraCropRef.current && analysisRef.current) {
         displayCrop = cameraCropToDisplayCrop(
           cameraCropRef.current,
           analysisRef.current.cameraResolution.width,
           analysisRef.current.cameraResolution.height,
           canvas.width,
-          canvas.height
+          canvas.height,
+          IS_MIRRORED
         );
-      } else if (cameraCropRef.current) {
-        displayCrop = {
-          x: cameraCropRef.current.x,
-          y: cameraCropRef.current.y,
-          width: cameraCropRef.current.width,
-          height: cameraCropRef.current.height,
-          status: cameraCropRef.current.status,
-          color: cameraCropRef.current.color,
-        };
       }
 
       if (displayCrop) {
-        drawCropBox(ctx, displayCrop, canvas.width, canvas.height, isWindowTooSmallRef.current);
+        drawCropBox(ctx, displayCrop, canvas.width, canvas.height, isWindowWarning);
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);

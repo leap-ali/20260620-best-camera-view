@@ -39,7 +39,7 @@ export function CameraView() {
     >
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         playsInline
         muted
         autoPlay
