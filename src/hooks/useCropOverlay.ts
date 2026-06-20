@@ -1,17 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useCameraStore } from '@/store/useCameraStore';
-import { CropBox } from '@/utils/types';
+import { CameraCropBox, DisplayCropBox, WINDOW_TOO_SMALL_COLOR } from '@/utils/types';
+import { cameraCropToDisplayCrop, getFullscreenDisplayCrop } from '@/utils/coordinateMapper';
 
 interface UseCropOverlayOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
 export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
-  const currentCrop = useCameraStore((state) => state.currentCrop);
-  const cropRef = useRef<CropBox | null>(null);
+  const cameraCrop = useCameraStore((state) => state.cameraCrop);
+  const analysis = useCameraStore((state) => state.analysis);
+  const isWindowTooSmall = useCameraStore((state) => state.isWindowTooSmall);
+
+  const cameraCropRef = useRef<CameraCropBox | null>(null);
+  const analysisRef = useRef(analysis);
+  const isWindowTooSmallRef = useRef(isWindowTooSmall);
   const animationFrameRef = useRef<number | null>(null);
 
-  cropRef.current = currentCrop;
+  cameraCropRef.current = cameraCrop;
+  analysisRef.current = analysis;
+  isWindowTooSmallRef.current = isWindowTooSmall;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -21,11 +29,33 @@ export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
     if (!ctx) return;
 
     const draw = () => {
-      const crop = cropRef.current;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (crop) {
-        drawCropBox(ctx, crop, canvas.width, canvas.height);
+      let displayCrop: DisplayCropBox | null = null;
+
+      if (isWindowTooSmallRef.current) {
+        displayCrop = getFullscreenDisplayCrop(WINDOW_TOO_SMALL_COLOR);
+      } else if (cameraCropRef.current && analysisRef.current) {
+        displayCrop = cameraCropToDisplayCrop(
+          cameraCropRef.current,
+          analysisRef.current.cameraResolution.width,
+          analysisRef.current.cameraResolution.height,
+          canvas.width,
+          canvas.height
+        );
+      } else if (cameraCropRef.current) {
+        displayCrop = {
+          x: cameraCropRef.current.x,
+          y: cameraCropRef.current.y,
+          width: cameraCropRef.current.width,
+          height: cameraCropRef.current.height,
+          status: cameraCropRef.current.status,
+          color: cameraCropRef.current.color,
+        };
+      }
+
+      if (displayCrop) {
+        drawCropBox(ctx, displayCrop, canvas.width, canvas.height, isWindowTooSmallRef.current);
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);
@@ -46,9 +76,10 @@ export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
 
 function drawCropBox(
   ctx: CanvasRenderingContext2D,
-  crop: CropBox,
+  crop: DisplayCropBox,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  isWindowWarning: boolean
 ) {
   const x = (crop.x / 100) * canvasWidth;
   const y = (crop.y / 100) * canvasHeight;
@@ -56,7 +87,9 @@ function drawCropBox(
   const height = (crop.height / 100) * canvasHeight;
 
   const time = performance.now() / 1000;
-  const pulse = 0.7 + 0.3 * Math.sin(time * 3);
+  const pulse = isWindowWarning
+    ? 0.6 + 0.4 * Math.sin(time * 4)
+    : 0.7 + 0.3 * Math.sin(time * 2);
 
   ctx.save();
 
@@ -66,9 +99,9 @@ function drawCropBox(
   ctx.fillRect(0, y, x, height);
   ctx.fillRect(x + width, y, canvasWidth - x - width, height);
 
-  const borderWidth = 4;
-  const cornerLength = 40;
-  const cornerWidth = 8;
+  const borderWidth = isWindowWarning ? 6 : 4;
+  const cornerLength = isWindowWarning ? 50 : 40;
+  const cornerWidth = isWindowWarning ? 10 : 8;
 
   ctx.strokeStyle = crop.color;
   ctx.lineWidth = borderWidth;
@@ -103,7 +136,7 @@ function drawCropBox(
   ctx.lineTo(x + width, y + height - cornerLength);
   ctx.stroke();
 
-  if (crop.status === 'needs_crop') {
+  if (crop.status === 'needs_crop' && !isWindowWarning) {
     ctx.setLineDash([10, 10]);
     ctx.lineDashOffset = -time * 30;
     ctx.lineWidth = 2;

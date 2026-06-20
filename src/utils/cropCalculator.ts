@@ -1,24 +1,8 @@
-import { CropBox, CropStatus, FrameAnalysis, CROP_COLORS, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT } from './types';
+import { CameraCropBox, CropStatus, FrameAnalysis, CROP_COLORS } from './types';
 
-export function calculateCropBox(
-  windowWidth: number,
-  windowHeight: number,
+export function calculateCameraCropBox(
   analysis: FrameAnalysis | null
-): { crop: CropBox; suggestion: string } {
-  if (windowWidth < MIN_WINDOW_WIDTH || windowHeight < MIN_WINDOW_HEIGHT) {
-    return {
-      crop: {
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        status: 'too_small',
-        color: CROP_COLORS.too_small,
-      },
-      suggestion: `窗口过小，请放大窗口至至少 ${MIN_WINDOW_WIDTH}×${MIN_WINDOW_HEIGHT}px`,
-    };
-  }
-
+): { crop: CameraCropBox; suggestion: string } {
   if (!analysis) {
     return {
       crop: {
@@ -67,9 +51,11 @@ function calculateOptimalCrop(analysis: FrameAnalysis): {
   height: number;
 } {
   const { x: subjectX, y: subjectY, confidence } = analysis.subjectPosition;
+  const cameraAspect =
+    analysis.cameraResolution.width / analysis.cameraResolution.height;
 
   if (confidence < 30) {
-    const margin = 15;
+    const margin = 10;
     return {
       x: margin,
       y: margin,
@@ -79,19 +65,19 @@ function calculateOptimalCrop(analysis: FrameAnalysis): {
   }
 
   const targetAspectRatio = 16 / 9;
-  let cropWidth: number;
-  let cropHeight: number;
+  let cropWidthPercent: number;
+  let cropHeightPercent: number;
 
-  if (targetAspectRatio > 1) {
-    cropWidth = 60 + (confidence / 100) * 25;
-    cropHeight = cropWidth / targetAspectRatio;
+  if (cameraAspect >= targetAspectRatio) {
+    cropHeightPercent = 60 + (confidence / 100) * 30;
+    cropWidthPercent = cropHeightPercent * targetAspectRatio / cameraAspect;
   } else {
-    cropHeight = 60 + (confidence / 100) * 25;
-    cropWidth = cropHeight * targetAspectRatio;
+    cropWidthPercent = 60 + (confidence / 100) * 30;
+    cropHeightPercent = cropWidthPercent * cameraAspect / targetAspectRatio;
   }
 
-  cropWidth = Math.min(85, Math.max(50, cropWidth));
-  cropHeight = Math.min(85, Math.max(50, cropHeight));
+  cropWidthPercent = Math.min(90, Math.max(50, cropWidthPercent));
+  cropHeightPercent = Math.min(90, Math.max(50, cropHeightPercent));
 
   const thirdX1 = 100 / 3;
   const thirdX2 = (100 / 3) * 2;
@@ -116,17 +102,17 @@ function calculateOptimalCrop(analysis: FrameAnalysis): {
     }
   }
 
-  let cropX = nearestIntersection.x - cropWidth / 2;
-  let cropY = nearestIntersection.y - cropHeight / 2;
+  let cropX = nearestIntersection.x - cropWidthPercent / 2;
+  let cropY = nearestIntersection.y - cropHeightPercent / 2;
 
-  cropX = Math.max(2, Math.min(100 - cropWidth - 2, cropX));
-  cropY = Math.max(2, Math.min(100 - cropHeight - 2, cropY));
+  cropX = Math.max(1, Math.min(100 - cropWidthPercent - 1, cropX));
+  cropY = Math.max(1, Math.min(100 - cropHeightPercent - 1, cropY));
 
   return {
     x: cropX,
     y: cropY,
-    width: cropWidth,
-    height: cropHeight,
+    width: cropWidthPercent,
+    height: cropHeightPercent,
   };
 }
 
@@ -185,7 +171,6 @@ function getImprovementSuggestion(analysis: FrameAnalysis): string {
 
 export function getStatusLabel(status: CropStatus): string {
   const labels: Record<CropStatus, string> = {
-    too_small: '窗口过小',
     perfect: '构图完美',
     needs_crop: '需要调整',
   };

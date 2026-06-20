@@ -1,6 +1,10 @@
 import { FrameAnalysis } from './types';
 
-export function analyzeFrame(imageData: ImageData): FrameAnalysis {
+export function analyzeFrame(
+  imageData: ImageData,
+  cameraWidth: number,
+  cameraHeight: number
+): FrameAnalysis {
   const { data, width, height } = imageData;
   const pixelCount = width * height;
 
@@ -34,8 +38,8 @@ export function analyzeFrame(imageData: ImageData): FrameAnalysis {
     subjectPos,
     avgBrightness,
     contrast,
-    width,
-    height
+    cameraWidth,
+    cameraHeight
   );
 
   return {
@@ -44,6 +48,10 @@ export function analyzeFrame(imageData: ImageData): FrameAnalysis {
     subjectPosition: subjectPos,
     compositionScore: score,
     ruleOfThirds,
+    cameraResolution: {
+      width: cameraWidth,
+      height: cameraHeight,
+    },
   };
 }
 

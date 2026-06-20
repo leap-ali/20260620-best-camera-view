@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useCameraStore } from '@/store/useCameraStore';
 import { analyzeFrame } from '@/utils/analyzer';
-import { calculateCropBox } from '@/utils/cropCalculator';
+import { calculateCameraCropBox } from '@/utils/cropCalculator';
 import { ANALYSIS_INTERVAL, ANALYSIS_WIDTH, ANALYSIS_HEIGHT } from '@/utils/types';
 
 export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | null>) {
@@ -9,17 +9,14 @@ export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | nu
   const lastAnalysisRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const isStreamingRef = useRef(false);
-  const windowSizeRef = useRef({ width: window.innerWidth, height: window.innerHeight });
   const initializedRef = useRef(false);
 
   const isStreaming = useCameraStore((state) => state.isStreaming);
-  const windowSize = useCameraStore((state) => state.windowSize);
   const setAnalysis = useCameraStore((state) => state.setAnalysis);
-  const setCrop = useCameraStore((state) => state.setCrop);
+  const setCameraCrop = useCameraStore((state) => state.setCameraCrop);
   const setSuggestion = useCameraStore((state) => state.setSuggestion);
 
   isStreamingRef.current = isStreaming;
-  windowSizeRef.current = windowSize;
 
   const analyze = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || !isStreamingRef.current) {
@@ -48,6 +45,9 @@ export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | nu
       return;
     }
 
+    const cameraWidth = video.videoWidth;
+    const cameraHeight = video.videoHeight;
+
     canvas.width = ANALYSIS_WIDTH;
     canvas.height = ANALYSIS_HEIGHT;
 
@@ -55,22 +55,18 @@ export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | nu
 
     try {
       const imageData = ctx.getImageData(0, 0, ANALYSIS_WIDTH, ANALYSIS_HEIGHT);
-      const analysis = analyzeFrame(imageData);
+      const analysis = analyzeFrame(imageData, cameraWidth, cameraHeight);
       setAnalysis(analysis);
 
-      const { crop, suggestion } = calculateCropBox(
-        windowSizeRef.current.width,
-        windowSizeRef.current.height,
-        analysis
-      );
-      setCrop(crop);
+      const { crop, suggestion } = calculateCameraCropBox(analysis);
+      setCameraCrop(crop);
       setSuggestion(suggestion);
     } catch (err) {
       console.error('Frame analysis error:', err);
     }
 
     animationFrameRef.current = requestAnimationFrame(analyze);
-  }, [videoRef, setAnalysis, setCrop, setSuggestion]);
+  }, [videoRef, setAnalysis, setCameraCrop, setSuggestion]);
 
   useEffect(() => {
     if (initializedRef.current) {
@@ -84,12 +80,8 @@ export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | nu
       document.body.appendChild(canvasRef.current);
     }
 
-    const { crop, suggestion } = calculateCropBox(
-      windowSizeRef.current.width,
-      windowSizeRef.current.height,
-      null
-    );
-    setCrop(crop);
+    const { crop, suggestion } = calculateCameraCropBox(null);
+    setCameraCrop(crop);
     setSuggestion(suggestion);
 
     animationFrameRef.current = requestAnimationFrame(analyze);
@@ -101,7 +93,7 @@ export function useFrameAnalyzer(videoRef: React.RefObject<HTMLVideoElement | nu
       }
       initializedRef.current = false;
     };
-  }, [analyze, setCrop, setSuggestion]);
+  }, [analyze, setCameraCrop, setSuggestion]);
 
   return {
     analysisCanvas: canvasRef,
