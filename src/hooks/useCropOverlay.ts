@@ -8,7 +8,10 @@ interface UseCropOverlayOptions {
 
 export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
   const currentCrop = useCameraStore((state) => state.currentCrop);
+  const cropRef = useRef<CropBox | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+
+  cropRef.current = currentCrop;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -18,23 +21,25 @@ export function useCropOverlay({ canvasRef }: UseCropOverlayOptions) {
     if (!ctx) return;
 
     const draw = () => {
+      const crop = cropRef.current;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (currentCrop) {
-        drawCropBox(ctx, currentCrop, canvas.width, canvas.height);
+      if (crop) {
+        drawCropBox(ctx, crop, canvas.width, canvas.height);
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);
     };
 
-    draw();
+    animationFrameRef.current = requestAnimationFrame(draw);
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [canvasRef, currentCrop]);
+  }, [canvasRef]);
 
   return null;
 }

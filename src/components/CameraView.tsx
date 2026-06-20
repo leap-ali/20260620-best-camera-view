@@ -43,6 +43,11 @@ export function CameraView() {
         playsInline
         muted
         autoPlay
+        style={{
+          transform: 'scaleX(-1)',
+          backfaceVisibility: 'hidden',
+          perspective: 1000,
+        }}
       />
 
       <CropOverlay />

@@ -3,11 +3,17 @@ import { useCameraStore } from '@/store/useCameraStore';
 
 export function useCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const initializedRef = useRef(false);
+
   const setStream = useCameraStore((state) => state.setStream);
   const setError = useCameraStore((state) => state.setError);
-  const stream = useCameraStore((state) => state.stream);
 
   const startCamera = useCallback(async () => {
+    if (streamRef.current) {
+      return;
+    }
+
     try {
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -19,6 +25,7 @@ export function useCamera() {
         audio: false,
       });
 
+      streamRef.current = mediaStream;
       setStream(mediaStream);
 
       if (videoRef.current) {
@@ -33,16 +40,24 @@ export function useCamera() {
   }, [setStream, setError]);
 
   const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       setStream(null);
     }
-  }, [stream, setStream]);
+  }, [setStream]);
 
   useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+    initializedRef.current = true;
+
     startCamera();
+
     return () => {
       stopCamera();
+      initializedRef.current = false;
     };
   }, [startCamera, stopCamera]);
 

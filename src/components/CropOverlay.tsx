@@ -1,10 +1,8 @@
 import { useRef, useEffect } from 'react';
-import { useCameraStore } from '@/store/useCameraStore';
 import { useCropOverlay } from '@/hooks/useCropOverlay';
 
 export function CropOverlay() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const currentCrop = useCameraStore((state) => state.currentCrop);
 
   useEffect(() => {
     const handleResize = () => {
@@ -31,6 +29,7 @@ export function CropOverlay() {
       style={{
         width: '100%',
         height: '100%',
+        imageRendering: 'auto',
       }}
     />
   );
